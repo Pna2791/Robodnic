@@ -1,4 +1,4 @@
-#include "Motor.h"
+#include <Motor.h>
 #include "BluetoothSerial.h"
 BluetoothSerial SerialBT;
 
@@ -16,11 +16,14 @@ const long loopInterval = 40; // 1000 ms / 25 Hz = 40 ms
 
 int rotary_resolution = 400;
 int motor_resolution = 2;
+int distance_step = 0;
+int abs_rotation = 0;
 
+#define math_ofset 200
 void rotate(int direction) {
-    int value = -direction * rotary_resolution;
-    rotary_left.goto_position(value);
-    rotary_right.goto_position(value);
+    abs_rotation += direction;
+    rotary_left.goto_position(abs_rotation * rotary_resolution);
+    rotary_right.goto_position(abs_rotation * rotary_resolution);
 }
 
 void left_move(int distance) {
@@ -37,20 +40,45 @@ void right_move(int distance) {
     wheel_right.goto_position(pre_right);
 }
 
-void move(int dir, int distance) {
-    if(dir == 0)    return;
-    int dir_ = gcode2dir[dir-1];
-    rotate(dir_);
-    long t_out = millis() + 1000;
+int get_rotation(int current, int target) {
+    int current_new = current + math_ofset;
+    target += math_ofset;
+    int values[] = {0, -1, 1};
+
+    for (int i = 0; i < 3; i++) {
+        int value = values[i];
+        if ((current_new + value) % 4 == target % 4)
+            return value;
+    }
+
+    return abs(current + 2) < abs(current - 2) ? 2 : -2;
+}
+
+void move(int code, int distance) {
+    if(code == 0)    return;
+    int target = gcode2dir[code-1];
+    int rotation = get_rotation(abs_rotation, target);
+    int dir = 1;
+    if((rotation+abs_rotation-target+math_ofset)% 8)
+        distance = -distance;
+    rotate(rotation);
+    long t_out = millis() + 100;
     while(millis() < t_out){
         motor_update();
     }
+    t_out += 900;
+    while(millis() < t_out){
+        motor_update();
+        if(rotary_left.is_stop && rotary_right.is_stop)
+            break;
+    }
     left_move(distance);
     right_move(distance);
-    Serial.println(dir_);
+    Serial.println(target);
     Serial.println(distance);
     Serial.println();
 }
+
 
 
 float rotary_P = 5;
@@ -60,7 +88,7 @@ float D = 0.001;
 
 void setup() {
     Serial.begin(115200);
-    SerialBT.begin("ESP32_Bluetooth"); // Set the Bluetooth device name
+    SerialBT.begin("4DC_Servo"); // Set the Bluetooth device name
     Serial.println("The device started, now you can pair it with Bluetooth!");
 
     // max_i_error, skip_error, max_speed, ofset
@@ -77,13 +105,15 @@ void setup() {
     wheel_right.setPID(wheel_P, I, D);
 }
 
+
+#define soft_start_value 50   //2s
 void motor_update() {
     static long next_time = millis();
     if(millis() > next_time) {
         rotary_left.computeAndSetMotorSpeed();
         rotary_right.computeAndSetMotorSpeed();
-        wheel_left.computeAndSetMotorSpeed();
-        wheel_right.computeAndSetMotorSpeed();
+        wheel_left.computeAndSetMotorSpeed(soft_start_value);
+        wheel_right.computeAndSetMotorSpeed(soft_start_value);
 
         // Print debug information
         Serial.print(wheel_left.getCounter());
@@ -109,26 +139,77 @@ void motor_update() {
 void loop() {
     // Check for serial commands
     if (Serial.available()) {
-        processSerialCommand();
+        String command = Serial.readStringUntil('\n');
+        processSerialCommand(command);
+    }
+
+    // Check for serial commands
+    if (SerialBT.available()) {
+        String command = SerialBT.readStringUntil('\n');
+        processSerialCommand(command);
     }
 
     motor_update();
 }
 
-void processSerialCommand() {
-    String command = Serial.readStringUntil('\n');
+
+void tuning(String command) {
+    if (command.length() != 2) {
+        // Handle invalid command length
+        Serial.println("Invalid command length");
+        return;
+    }
+
+    char direction = command.charAt(0);
+    char sign = command.charAt(1);
+    int value = rotary_resolution / 10;
+
+    // Compute the value based on the sign
+    if (sign == '-') {
+        value = -value;
+    } else if (sign != '+') {
+        // Handle invalid sign
+        Serial.println("Invalid sign");
+        return;
+    }
+
+    // Apply the value to the appropriate rotary
+    if (direction == 'L') {
+        rotary_left.goto_position(value);
+    } else if (direction == 'R') {
+        rotary_right.goto_position(value);
+    } else {
+        // Handle invalid direction
+        Serial.println("Invalid direction");
+    }
+}
+
+
+void processSerialCommand(String command) {
+    Serial.println(command);
     command.trim();  // Remove any leading/trailing whitespace
 
     if (command.startsWith("T")) {
-        long targetPosition = command.substring(1).toInt();
-        // rotary_left.goto_position(targetPosition);
-        // rotary_right.goto_position(targetPosition);
-        // Serial.print("Setpoint updated to: ");
-        // Serial.println(targetPosition);
+        tuning(command.substring(1));
     } else if (command.startsWith("M")) {
         int direction = command.substring(1).toInt();
-        // Serial.println(direction);
-        move(direction, 200);
+        move(direction, distance_step);
+    } else if (command.startsWith("D")) {
+        distance_step = command.substring(1).toInt();
+    } else if (command.startsWith("W")) {
+        // Extract the proportional gain from the command
+        float newKp = command.substring(1).toFloat();
+        wheel_left.Kp = newKp;
+        wheel_right.Kp = newKp;
+        Serial.print("Kp updated to: ");
+        Serial.println(newKp);
+    } else if (command.startsWith("R")) {
+        // Extract the proportional gain from the command
+        float newKp = command.substring(1).toFloat();
+        rotary_left.Kp = newKp;
+        rotary_right.Kp = newKp;
+        Serial.print("Kp updated to: ");
+        Serial.println(newKp);
     } else if (command == "GET_POSITION") {
         Serial.print("Motor 1 Position: ");
         Serial.println(rotary_left.getCounter());

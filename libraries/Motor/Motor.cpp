@@ -50,7 +50,7 @@ void Motor::computeAndSetMotorSpeed(int soft) {
         max_count++;
         if(max_count > soft)    max_count = soft;
         
-        output *= 1./3 + 2.0/3*max_count / soft;
+        output *= 1.0 * max_count / soft;
     }
     setMotorSpeed(output);
 }
