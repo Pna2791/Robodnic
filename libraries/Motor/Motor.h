@@ -11,6 +11,8 @@ public:
     long getCounter();
     void setMotorSpeed(int val);
     void computeAndSetMotorSpeed(int soft=1);
+    void smooth_speed(float input_speed, int soft = 1); 
+    float estimate_speed(long currentPosition, long currentTime);
     void goto_position(long sp);
     void setPID(float p, float i, float d);
     bool is_small();

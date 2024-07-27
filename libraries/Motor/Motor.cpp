@@ -34,29 +34,48 @@ void Motor::setMotorSpeed(int val) {
         digitalWrite(dirPin_, LOW);
         analogWrite(speedPin_, 0);
     } else if (val < 0) {
-        digitalWrite(dirPin_, LOW);
+        digitalWrite(dirPin_, HIGH);
         analogWrite(speedPin_, -val);
     } else {
-        digitalWrite(dirPin_, HIGH);
+        digitalWrite(dirPin_, LOW);
         analogWrite(speedPin_, val);
     }
+}
+
+void Motor::smooth_speed(float input_speed, int soft) {
+    max_count++;
+    if(max_count > soft)    max_count = soft;
+
+    float output = input_speed * max_count / soft;
+    setMotorSpeed(output);
+}
+
+float Motor::estimate_speed(long currentPosition, long currentTime) {
+    return computePID(setpoint, currentPosition, currentTime);
 }
 
 void Motor::computeAndSetMotorSpeed(int soft) {
     long currentTime = millis();
     long currentPosition = getCounter();
     float output = computePID(setpoint, currentPosition, currentTime);
-    if(abs(output) == max_speed){
-        max_count++;
-        if(max_count > soft)    max_count = soft;
+
+    max_count++;
+    if(max_count > soft)    max_count = soft;
+    
+    output *= 1.0 * max_count / soft;
+
+    // if(abs(output) == max_speed){
+    //     max_count++;
+    //     if(max_count > soft)    max_count = soft;
         
-        output *= 1.0 * max_count / soft;
-    }
+    //     output *= 1.0 * max_count / soft;
+    // }
     setMotorSpeed(output);
 }
 
 void Motor::goto_position(long sp) {
     setpoint = sp;
+    max_count = 0;
 }
 
 void Motor::setPID(float p, float i, float d) {

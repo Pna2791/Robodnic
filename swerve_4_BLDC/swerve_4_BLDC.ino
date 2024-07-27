@@ -6,8 +6,8 @@ BluetoothSerial SerialBT;
 Motor rotary_left(4, 16, 5, 17);  // ID 1
 Motor rotary_right(39, 36, 25, 26); // ID 2
 
-Motor wheel_left(13, 15, 23, 18);   // ID 3
-Motor wheel_right(34, 35, 32, 33);   // ID 4
+Motor motor_left(13, 15, 23, 18);   // ID 3
+Motor motor_right(34, 35, 32, 33);   // ID 4
 
 int gcode2dir[8] = {0, 4, 6, 2, 7, 1, 5, 3};
 
@@ -29,14 +29,14 @@ void left_move(int distance) {
     static long pre_left = 0;
     int value = distance * motor_resolution;
     pre_left += value;
-    wheel_left.goto_position(pre_left);
+    motor_left.goto_position(pre_left);
 }
 
 void right_move(int distance) {
     static long pre_right = 0;
     int value = distance * motor_resolution;
     pre_right += value;
-    wheel_right.goto_position(pre_right);
+    motor_right.goto_position(pre_right);
 }
 
 int get_rotation(int current, int target) {
@@ -98,11 +98,11 @@ void setup() {
     rotary_right.begin(100, 5, 150, rotary_ofset);
     rotary_right.setPID(rotary_P, I*5, D);
 
-    wheel_left.begin(32, 10, 255, 1);
-    wheel_left.setPID(wheel_P, I, D);
+    motor_left.begin(32, 10, 255, 1);
+    motor_left.setPID(wheel_P, I, D);
 
-    wheel_right.begin(32, 10, 255, 1);
-    wheel_right.setPID(wheel_P, I, D);
+    motor_right.begin(32, 10, 255, 1);
+    motor_right.setPID(wheel_P, I, D);
 }
 
 void motor_update() {
@@ -110,17 +110,17 @@ void motor_update() {
     if(millis() > next_time) {
         rotary_left.computeAndSetMotorSpeed();
         rotary_right.computeAndSetMotorSpeed();
-        wheel_left.computeAndSetMotorSpeed(30);
-        wheel_right.computeAndSetMotorSpeed(30);
+        motor_left.computeAndSetMotorSpeed(30);
+        motor_right.computeAndSetMotorSpeed(30);
 
         // Print debug information
-        Serial.print(wheel_left.getCounter());
+        Serial.print(motor_left.getCounter());
         Serial.print("/");
-        Serial.print(wheel_left.setpoint);
+        Serial.print(motor_left.setpoint);
         Serial.print("\t");
-        Serial.print(wheel_right.getCounter());
+        Serial.print(motor_right.getCounter());
         Serial.print("/");
-        Serial.print(wheel_right.setpoint);
+        Serial.print(motor_right.setpoint);
         Serial.print("\t\t");
         Serial.print(rotary_left.getCounter());
         Serial.print("/");
@@ -167,8 +167,8 @@ void processSerialCommand(String command) {
     } else if (command.startsWith("W")) {
         // Extract the proportional gain from the command
         float newKp = command.substring(1).toFloat();
-        wheel_left.Kp = newKp;
-        wheel_right.Kp = newKp;
+        motor_left.Kp = newKp;
+        motor_right.Kp = newKp;
         Serial.print("Kp updated to: ");
         Serial.println(newKp);
     } else if (command.startsWith("R")) {

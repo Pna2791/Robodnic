@@ -6,8 +6,8 @@ BluetoothSerial SerialBT;
 Motor rotary_left(36, 39, 18, 23);  // ID 2
 Motor rotary_right(33, 32, 19, 22); // ID 3
 
-Motor wheel_left(34, 35, 13, 15);   // ID 1
-Motor wheel_right(26, 25, 5, 17);   // ID 4
+Motor motor_left(34, 35, 13, 15);   // ID 1
+Motor motor_right(26, 25, 5, 17);   // ID 4
 
 int gcode2dir[8] = {0, 4, 6, 2, 7, 1, 5, 3};
 
@@ -22,22 +22,24 @@ int abs_rotation = 0;
 #define math_ofset 200
 void rotate(int direction) {
     abs_rotation += direction;
-    rotary_left.goto_position(abs_rotation * rotary_resolution);
-    rotary_right.goto_position(abs_rotation * rotary_resolution);
+    rotary_left.setpoint += direction * rotary_resolution;
+    rotary_right.setpoint += direction * rotary_resolution;
+    // rotary_left.goto_position(abs_rotation * rotary_resolution);
+    // rotary_right.goto_position(abs_rotation * rotary_resolution);
 }
 
 void left_move(int distance) {
     static long pre_left = 0;
     int value = distance * motor_resolution;
     pre_left += value;
-    wheel_left.goto_position(pre_left);
+    motor_left.goto_position(pre_left);
 }
 
 void right_move(int distance) {
     static long pre_right = 0;
     int value = distance * motor_resolution;
     pre_right += value;
-    wheel_right.goto_position(pre_right);
+    motor_right.goto_position(pre_right);
 }
 
 int get_rotation(int current, int target) {
@@ -84,7 +86,8 @@ void move(int code, int distance) {
 float rotary_P = 5;
 float wheel_P = 0.5;
 float I = 0.1;
-float D = 0.001;
+float rotary_D = 0.15;
+float wheel_D = 0.02;
 
 void setup() {
     Serial.begin(115200);
@@ -92,17 +95,17 @@ void setup() {
     Serial.println("The device started, now you can pair it with Bluetooth!");
 
     // max_i_error, skip_error, max_speed, ofset
-    rotary_left.begin(32, 5, 255, 1);
-    rotary_left.setPID(rotary_P, I, D);
+    rotary_left.begin(32, 3, 255, 1);
+    rotary_left.setPID(rotary_P, I, rotary_D);
 
-    rotary_right.begin(32, 5, 255, 1);
-    rotary_right.setPID(rotary_P, I, D);
+    rotary_right.begin(32, 3, 255, 1);
+    rotary_right.setPID(rotary_P, I, rotary_D);
 
-    wheel_left.begin(32, 5, 100, 1);
-    wheel_left.setPID(wheel_P, I, D);
+    motor_left.begin(32, 3, 100, 1);
+    motor_left.setPID(wheel_P, I, wheel_D);
 
-    wheel_right.begin(32, 5, 100, 1);
-    wheel_right.setPID(wheel_P, I, D);
+    motor_right.begin(32, 3, 100, 1);
+    motor_right.setPID(wheel_P, I, wheel_D);
 }
 
 
@@ -112,17 +115,17 @@ void motor_update() {
     if(millis() > next_time) {
         rotary_left.computeAndSetMotorSpeed();
         rotary_right.computeAndSetMotorSpeed();
-        wheel_left.computeAndSetMotorSpeed(soft_start_value);
-        wheel_right.computeAndSetMotorSpeed(soft_start_value);
+        motor_left.computeAndSetMotorSpeed(soft_start_value);
+        motor_right.computeAndSetMotorSpeed(soft_start_value);
 
         // Print debug information
-        Serial.print(wheel_left.getCounter());
+        Serial.print(motor_left.getCounter());
         Serial.print("/");
-        Serial.print(wheel_left.setpoint);
+        Serial.print(motor_left.setpoint);
         Serial.print("\t");
-        Serial.print(wheel_right.getCounter());
+        Serial.print(motor_right.getCounter());
         Serial.print("/");
-        Serial.print(wheel_right.setpoint);
+        Serial.print(motor_right.setpoint);
         Serial.print("\t\t");
         Serial.print(rotary_left.getCounter());
         Serial.print("/");
@@ -154,7 +157,7 @@ void loop() {
 
 
 void tuning(String command) {
-    if (command.length() != 2) {
+    if (command.length() != 3) {
         // Handle invalid command length
         Serial.println("Invalid command length");
         return;
@@ -162,7 +165,10 @@ void tuning(String command) {
 
     char direction = command.charAt(0);
     char sign = command.charAt(1);
-    int value = rotary_resolution / 10;
+    char FS = command.charAt(2);
+    int k = 20;
+    if(FS == 'F')   k=2;
+    int value = rotary_resolution / k;
 
     // Compute the value based on the sign
     if (sign == '-') {
@@ -175,9 +181,9 @@ void tuning(String command) {
 
     // Apply the value to the appropriate rotary
     if (direction == 'L') {
-        rotary_left.goto_position(value);
+        rotary_left.setpoint += value;
     } else if (direction == 'R') {
-        rotary_right.goto_position(value);
+        rotary_right.setpoint += value;
     } else {
         // Handle invalid direction
         Serial.println("Invalid direction");
@@ -199,8 +205,8 @@ void processSerialCommand(String command) {
     } else if (command.startsWith("W")) {
         // Extract the proportional gain from the command
         float newKp = command.substring(1).toFloat();
-        wheel_left.Kp = newKp;
-        wheel_right.Kp = newKp;
+        motor_left.Kp = newKp;
+        motor_right.Kp = newKp;
         Serial.print("Kp updated to: ");
         Serial.println(newKp);
     } else if (command.startsWith("R")) {
