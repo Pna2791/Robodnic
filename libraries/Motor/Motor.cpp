@@ -78,6 +78,10 @@ void Motor::goto_position(long sp) {
     max_count = 0;
 }
 
+void Motor::reset() {
+    setpoint = getCounter();
+}
+
 void Motor::setPID(float p, float i, float d) {
     Kp = p;
     Ki = i;

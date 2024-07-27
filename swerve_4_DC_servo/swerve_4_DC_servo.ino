@@ -10,6 +10,8 @@ Motor motor_left(34, 35, 13, 15);   // ID 1
 Motor motor_right(26, 25, 5, 17);   // ID 4
 
 int gcode2dir[8] = {0, 4, 6, 2, 7, 1, 5, 3};
+bool auto_mode = true;
+int manual_speed = 0;
 
 // Define loop interval in milliseconds for 25Hz frequency
 const long loopInterval = 40; // 1000 ms / 25 Hz = 40 ms
@@ -56,13 +58,19 @@ int get_rotation(int current, int target) {
     return abs(current + 2) < abs(current - 2) ? 2 : -2;
 }
 
-void move(int code, int distance) {
-    if(code == 0)    return;
+void move(int code, int distance_speed) {
+    if(code == 0){
+        if(!auto_mode){
+            motor_left.setMotorSpeed(0);
+            motor_right.setMotorSpeed(0);
+        }
+        return;
+    }
     int target = gcode2dir[code-1];
     int rotation = get_rotation(abs_rotation, target);
     int dir = 1;
     if((rotation+abs_rotation-target+math_ofset)% 8)
-        distance = -distance;
+        distance_speed = -distance_speed;
     rotate(rotation);
     long t_out = millis() + 100;
     while(millis() < t_out){
@@ -74,10 +82,15 @@ void move(int code, int distance) {
         if(rotary_left.is_stop && rotary_right.is_stop)
             break;
     }
-    left_move(distance);
-    right_move(distance);
+    if(auto_mode){
+        left_move(distance_speed);
+        right_move(distance_speed);
+    }else{
+        motor_left.setMotorSpeed(distance_speed);
+        motor_right.setMotorSpeed(distance_speed);
+    }
     Serial.println(target);
-    Serial.println(distance);
+    Serial.println(distance_speed);
     Serial.println();
 }
 
@@ -115,8 +128,10 @@ void motor_update() {
     if(millis() > next_time) {
         rotary_left.computeAndSetMotorSpeed();
         rotary_right.computeAndSetMotorSpeed();
-        motor_left.computeAndSetMotorSpeed(soft_start_value);
-        motor_right.computeAndSetMotorSpeed(soft_start_value);
+        if(auto_mode){
+            motor_left.computeAndSetMotorSpeed(soft_start_value);
+            motor_right.computeAndSetMotorSpeed(soft_start_value);
+        }
 
         // Print debug information
         Serial.print(motor_left.getCounter());
@@ -189,6 +204,10 @@ void tuning(String command) {
         Serial.println("Invalid direction");
     }
 }
+void speed_set(String command){
+    int value = command.substring(1).toInt();
+    if(command.charAt(0) == 'S')    manual_speed= value;
+}
 
 
 void processSerialCommand(String command) {
@@ -197,6 +216,8 @@ void processSerialCommand(String command) {
 
     if (command.startsWith("T")) {
         tuning(command.substring(1));
+    } else if (command.startsWith("S")) {
+        speed_set(command.substring(1));
     } else if (command.startsWith("M")) {
         int direction = command.substring(1).toInt();
         move(direction, distance_step);
@@ -216,11 +237,30 @@ void processSerialCommand(String command) {
         rotary_right.Kp = newKp;
         Serial.print("Kp updated to: ");
         Serial.println(newKp);
-    } else if (command == "GET_POSITION") {
-        Serial.print("Motor 1 Position: ");
-        Serial.println(rotary_left.getCounter());
-        Serial.print("Motor 2 Position: ");
-        Serial.println(rotary_right.getCounter());
+    } else if (command.startsWith("A")) {
+        if(command.charAt(0) == 'E'){
+            motor_left.reset();
+            motor_right.reset();
+            auto_mode = true;
+        }
+        if(command.charAt(0) == 'D'){
+            auto_mode = false;
+        }
+    } else if (command.startsWith("R")) {
+        if(command.charAt(0) == 'L'){
+            move(1, 0);
+            motor_left.setMotorSpeed(-manual_speed);
+            motor_right.setMotorSpeed(manual_speed);
+        }
+        if(command.charAt(0) == 'R'){
+            move(1, 0);
+            motor_left.setMotorSpeed(manual_speed);
+            motor_right.setMotorSpeed(-manual_speed);
+        }
+        if(command.charAt(0) == '0'){
+            motor_left.setMotorSpeed(0);
+            motor_right.setMotorSpeed(0);
+        }
     } else {
         Serial.println("Unknown command");
     }

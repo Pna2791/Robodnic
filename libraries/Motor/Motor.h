@@ -16,6 +16,7 @@ public:
     void goto_position(long sp);
     void setPID(float p, float i, float d);
     bool is_small();
+    void reset();
     float Kp, Ki, Kd;
     long setpoint;
     bool is_stop = false;
