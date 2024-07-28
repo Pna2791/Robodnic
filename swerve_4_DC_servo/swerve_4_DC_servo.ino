@@ -24,10 +24,12 @@ int abs_rotation = 0;
 #define math_ofset 200
 void rotate(int direction) {
     abs_rotation += direction;
-    rotary_left.setpoint += direction * rotary_resolution;
-    rotary_right.setpoint += direction * rotary_resolution;
-    // rotary_left.goto_position(abs_rotation * rotary_resolution);
-    // rotary_right.goto_position(abs_rotation * rotary_resolution);
+
+    long left_target = rotary_left.setpoint + direction * rotary_resolution;
+    long right_target = rotary_right.setpoint + direction * rotary_resolution;
+
+    rotary_left.goto_position(left_target);
+    rotary_right.goto_position(right_target);
 }
 
 void left_move(int distance) {
@@ -72,11 +74,11 @@ void move(int code, int distance_speed) {
     if((rotation+abs_rotation-target+math_ofset)% 8)
         distance_speed = -distance_speed;
     rotate(rotation);
-    long t_out = millis() + 100;
-    while(millis() < t_out){
-        motor_update();
-    }
-    t_out += 900;
+    long t_out = millis() + 1000;
+    // while(millis() < t_out){
+    //     motor_update();
+    // }
+    // t_out += 900;
     while(millis() < t_out){
         motor_update();
         if(rotary_left.is_stop && rotary_right.is_stop)
@@ -134,21 +136,23 @@ void motor_update() {
         }
 
         // Print debug information
-        Serial.print(motor_left.getCounter());
-        Serial.print("/");
-        Serial.print(motor_left.setpoint);
-        Serial.print("\t");
-        Serial.print(motor_right.getCounter());
-        Serial.print("/");
-        Serial.print(motor_right.setpoint);
-        Serial.print("\t\t");
-        Serial.print(rotary_left.getCounter());
-        Serial.print("/");
-        Serial.print(rotary_left.setpoint);
-        Serial.print("\t");
-        Serial.print(rotary_right.getCounter());
-        Serial.print("/");
-        Serial.println(rotary_right.setpoint);
+        if(false){
+            Serial.print(motor_left.getCounter());
+            Serial.print("/");
+            Serial.print(motor_left.setpoint);
+            Serial.print("\t");
+            Serial.print(motor_right.getCounter());
+            Serial.print("/");
+            Serial.print(motor_right.setpoint);
+            Serial.print("\t\t");
+            Serial.print(rotary_left.getCounter());
+            Serial.print("/");
+            Serial.print(rotary_left.setpoint);
+            Serial.print("\t");
+            Serial.print(rotary_right.getCounter());
+            Serial.print("/");
+            Serial.println(rotary_right.setpoint);
+        }
 
         next_time += loopInterval;
     }
@@ -207,6 +211,8 @@ void tuning(String command) {
 void speed_set(String command){
     int value = command.substring(1).toInt();
     if(command.charAt(0) == 'S')    manual_speed= value;
+    Serial.print("Set speed value: ");
+    Serial.println(value);
 }
 
 
@@ -220,7 +226,11 @@ void processSerialCommand(String command) {
         speed_set(command.substring(1));
     } else if (command.startsWith("M")) {
         int direction = command.substring(1).toInt();
-        move(direction, distance_step);
+        if(auto_mode){
+            move(direction, distance_step);
+        }else{
+            move(direction, manual_speed);
+        }
     } else if (command.startsWith("D")) {
         distance_step = command.substring(1).toInt();
     } else if (command.startsWith("W")) {
@@ -230,34 +240,29 @@ void processSerialCommand(String command) {
         motor_right.Kp = newKp;
         Serial.print("Kp updated to: ");
         Serial.println(newKp);
-    } else if (command.startsWith("R")) {
-        // Extract the proportional gain from the command
-        float newKp = command.substring(1).toFloat();
-        rotary_left.Kp = newKp;
-        rotary_right.Kp = newKp;
-        Serial.print("Kp updated to: ");
-        Serial.println(newKp);
     } else if (command.startsWith("A")) {
-        if(command.charAt(0) == 'E'){
+        if(command.charAt(1) == 'E'){
             motor_left.reset();
             motor_right.reset();
             auto_mode = true;
+            Serial.println("Auto mode: enable");
         }
-        if(command.charAt(0) == 'D'){
+        if(command.charAt(1) == 'D'){
             auto_mode = false;
+            Serial.println("Auto mode: disable");
         }
     } else if (command.startsWith("R")) {
-        if(command.charAt(0) == 'L'){
+        if(command.charAt(1) == 'L'){
             move(1, 0);
             motor_left.setMotorSpeed(-manual_speed);
             motor_right.setMotorSpeed(manual_speed);
         }
-        if(command.charAt(0) == 'R'){
+        if(command.charAt(1) == 'R'){
             move(1, 0);
             motor_left.setMotorSpeed(manual_speed);
             motor_right.setMotorSpeed(-manual_speed);
         }
-        if(command.charAt(0) == '0'){
+        if(command.charAt(1) == '0'){
             motor_left.setMotorSpeed(0);
             motor_right.setMotorSpeed(0);
         }

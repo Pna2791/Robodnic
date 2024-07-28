@@ -76,6 +76,8 @@ void Motor::computeAndSetMotorSpeed(int soft) {
 void Motor::goto_position(long sp) {
     setpoint = sp;
     max_count = 0;
+    error_count = 0;
+    is_stop = false;
 }
 
 void Motor::reset() {
