@@ -33,12 +33,12 @@ void Motor::setMotorSpeed(int val) {
     if (val == 0) {
         digitalWrite(dirPin_, LOW);
         analogWrite(speedPin_, 0);
-    } else if (val < 0) {
+    } else if (val > 0) {
         digitalWrite(dirPin_, HIGH);
-        analogWrite(speedPin_, -val);
+        analogWrite(speedPin_, val);
     } else {
         digitalWrite(dirPin_, LOW);
-        analogWrite(speedPin_, val);
+        analogWrite(speedPin_, -val);
     }
 }
 
