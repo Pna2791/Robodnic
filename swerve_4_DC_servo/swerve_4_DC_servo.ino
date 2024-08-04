@@ -2,6 +2,9 @@
 #include "BluetoothSerial.h"
 BluetoothSerial SerialBT;
 
+#define laser_left 12
+#define laser_right 14
+
 //  Encoder A / B, dir_pin, speed_pin
 Motor rotary_left(36, 39, 18, 23);  // ID 2
 Motor rotary_right(33, 32, 19, 22); // ID 3
@@ -14,9 +17,10 @@ bool auto_mode = true;
 int manual_speed = 0;
 
 // Define loop interval in milliseconds for 25Hz frequency
-const long loopInterval = 40; // 1000 ms / 25 Hz = 40 ms
+const long loopInterval = 30; // 1000 ms / 25 Hz = 40 ms
 
-int rotary_resolution = 400;
+// int rotary_resolution = 400; //140RPM
+int rotary_resolution = 660;    //333RPM
 int motor_resolution = 2;
 int distance_step = 0;
 int abs_rotation = 0;
@@ -98,10 +102,12 @@ void move(int code, int distance_speed) {
 
 
 
-float rotary_P = 5;
+// float rotary_P = 5;  //140RPM
+float rotary_P = 1; //333RMP
 float wheel_P = 0.5;
 float I = 0.1;
-float rotary_D = 0.15;
+// float rotary_D = 0.15;   //140RPM
+float rotary_D = 0.05;  //333RPM
 float wheel_D = 0.02;
 
 void setup() {
@@ -109,11 +115,14 @@ void setup() {
     SerialBT.begin("4DC_Servo"); // Set the Bluetooth device name
     Serial.println("The device started, now you can pair it with Bluetooth!");
 
+    pinMode(laser_left, INPUT);
+    pinMode(laser_right, INPUT);
+
     // max_i_error, skip_error, max_speed, ofset
-    rotary_left.begin(32, 3, 255, 1);
+    rotary_left.begin(32, 10, 255, 1);
     rotary_left.setPID(rotary_P, I, rotary_D);
 
-    rotary_right.begin(32, 3, 255, 1);
+    rotary_right.begin(32, 10, 255, 1);
     rotary_right.setPID(rotary_P, I, rotary_D);
 
     motor_left.begin(32, 3, 100, 1);
@@ -153,7 +162,9 @@ void motor_update() {
             Serial.print("/");
             Serial.println(rotary_right.setpoint);
         }
-
+        Serial.print(digitalRead(laser_left));
+        Serial.print('\t');
+        Serial.println(digitalRead(laser_right));
         next_time += loopInterval;
     }
 }

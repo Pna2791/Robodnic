@@ -14,10 +14,12 @@ int gcode2dir[8] = {0, 4, 6, 2, 7, 1, 5, 3};
 // Define loop interval in milliseconds for 25Hz frequency
 const long loopInterval = 40; // 1000 ms / 25 Hz = 40 ms
 
-float rotary_P = 5;
+float rotary_P = 1;
 float wheel_P = 0.5;
 float I = 0.1;
-float D = 0.02;
+float D = 0.07;
+// float D = 0.02;
+// RESOLUTION OF SERVO 333 IS 5276/ROUND
 
 void setup() {
     Serial.begin(115200);
@@ -25,10 +27,10 @@ void setup() {
     // Serial.println("The device started, now you can pair it with Bluetooth!");
 
     // max_i_error, skip_error, max_speed, ofset
-    motor_left.begin(32, 5, 255, 1);
+    motor_left.begin(32, 10, 255, 1);
     motor_left.setPID(rotary_P, I, D);
 
-    motor_right.begin(32, 5, 255, 1);
+    motor_right.begin(32, 10, 255, 1);
     motor_right.setPID(rotary_P, I, D);
 
     // motor_left.begin(32, 3, 100, 1);

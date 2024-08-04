@@ -53,10 +53,10 @@
 
 
 // BRUSHED ID 4
-#define dir_pin 18
-#define speed_pin 23
-#define reader_pin 36
-#define dir 39
+// #define dir_pin 18
+// #define speed_pin 23
+// #define reader_pin 36
+// #define dir 39
 
 #define max_speed 100
 #define ofset 1
