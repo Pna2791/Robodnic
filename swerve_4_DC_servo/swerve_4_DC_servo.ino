@@ -112,7 +112,7 @@ float wheel_D = 0.02;
 
 void setup() {
     Serial.begin(115200);
-    SerialBT.begin("4DC_Servo"); // Set the Bluetooth device name
+    SerialBT.begin("4DC_Servo_TEST"); // Set the Bluetooth device name
     Serial.println("The device started, now you can pair it with Bluetooth!");
 
     pinMode(laser_left, INPUT);
